@@ -1,0 +1,50 @@
+name: Build and run tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches-ignore:
+      - gh-pages
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: "Install dependencies"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang-tidy-12 \
+            lcov \
+            ninja-build \
+           --install-suggests
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-12 30
+
+      - name: "Add scripts to path"
+        working-directory: ${{ github.workspace }}
+        run: echo "$GITHUB_WORKSPACE/sh" >> $GITHUB_PATH
+
+      - name: "Configure build"
+        working-directory: ${{ github.workspace }}
+        run: |
+          cmake -S . -B build -G Ninja \
+            -D CMAKE_CXX_COMPILER=clang++-12 \
+            -D CMAKE_BUILD_TYPE=Debug \
+            -D RCD_OPTIONS_ENABLE_PCH=OFF \
+            -D RCD_TOOLS_ENABLE_TIDY=ON \
+            -D RCD_TOOLS_ENABLE_FORMATTING=OFF \
+            -D RCD_TOOLS_ENABLE_TAGS=OFF
+
+      - name: "Build"
+        working-directory: ${{ github.workspace }}/build
+        run: cmake --build .
